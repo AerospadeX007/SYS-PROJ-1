@@ -163,7 +163,7 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
         m_ins=specs["ins_ox"]*A_tank_ox+specs["ins_fuel"]*A_tank_f #insulation mass
         m_casing=0.0
         m_eng=N_eng*(7.81e-4*specs["T_motor"]+3.37e-5*specs["T_motor"]*np.sqrt(specs["eps"])+59.0)
-        m_intertank=shell_fairing_mass(np.pi*D*1.0)
+        m_intertank=shell_fairing_mass(np.pi*D*(D)) #height will be dome caps radius(D/2 * 2 caps) 
         tank_len_total=L_tank_f+L_tank_ox+1.0
 
     m_gimbal=N_eng*237.8*(specs["T_motor"]/specs["Pc"])**0.9375
@@ -189,7 +189,7 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
         m_avionics=0.0
 
     #calculate stage length
-    stage_length=tank_len_total+L_aft #note that we don't add L_IS as this would double count the overlapping interstage/stage 2 engine region
+    stage_length=tank_len_total+L_aft+L_PLF #note that we don't add L_IS as this would double count the overlapping interstage/stage 2 engine region
     
     m_wiring=1.058*np.sqrt(M0)*(stage_length**0.25)
 
