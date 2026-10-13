@@ -20,6 +20,28 @@ def tank_geometry(V: float, D: float):
         A_total=4.0*np.pi*r**2
     return L_cyl, A_total, L_total
 
+def payload_fairing_geometry(D: float):
+    d_plf=TrueConst.fairing["fairing_diameter_m3"] # 5.2m requirement
+    h_plf=TrueConst.fairing["fairing_height_m"] # 13.0m cylinder height requirement
+    r_top=d_plf/2.0
+    r_base=D/2.0
+
+    #conical frustum tapering from core diam D down to 5.2m
+    slant_barrel=np.sqrt((r_base-r_top)**2+h_plf**2)
+    A_barrel=np.pi*(r_base+r_top)*slant_barrel
+
+    #aerodynamic nose cone on top of 5.2m ring
+    h_cone=d_plf # nose cone height equal to payload diameter
+    slant_cone=np.sqrt(r_top**2+h_cone**2)
+    A_cone=np.pi*r_top*slant_cone
+
+    # total geometry and mass from MER
+    A_total=A_barrel+A_cone
+    L_total=h_plf+h_cone
+    m_fairing=shell_fairing_mass(A_total)
+
+    return L_total, m_fairing
+
 def shell_fairing_mass(A: float): #input is area in m^2, output in kg
     return 4.95 * A**1.15
 
@@ -88,6 +110,15 @@ def get_stage_prop_specs(prop_name: str, stage_num: int):
             tank_fuel=12.16
             ins_fuel=0.0
 
+    #temporary j-2x check(TODO: PUT REFERENCE IN SLIDES FOR THESE NUMBERS)
+    if prop_name=="LOX/LH2":
+        if stage_num==2:
+            T_motor=1.307e6
+            De=3.05
+            Pc=9.1e6
+            eps=92.0
+            Isp=448.0
+
     return {
         "is_solid": is_solid, "T_motor": T_motor, "De": De, "Pc": Pc, "eps": eps, "Isp": Isp,
         "MR": MR, "rho_ox": rho_ox, "rho_fuel": rho_fuel, "rho_solid": rho_solid,
@@ -149,13 +180,7 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
     else:
         L_IS=0.0 #interstage considered part of stage 1
         m_IS=0.0
-        D_plf=TrueConst.fairing["fairing_diameter_m3"]
-        H_cyl=TrueConst.fairing["fairing_height_m"]
-        r_f=D_plf/2.0
-        L_PLF=H_cyl+D_plf #cylinder height plus nose cone height
-        A_cone=np.pi*r_f*np.sqrt(r_f**2+D_plf**2)
-        A_cyl_plf=np.pi*D_plf*H_cyl
-        m_PLF=shell_fairing_mass(A_cyl_plf+A_cone)
+        L_PLF, m_PLF=payload_fairing_geometry(D) #use helper to get payload length and mass
 
     #avionics and wiring
     if stage_num==2:
@@ -289,3 +314,6 @@ if __name__=="__main__":
                     print(f"M0: {res['M0']:,.0f} kg | L_tot: {res['L_total']:.1f}m | Cost: ${res['total_cost_M']/1000.0:.3f}B FY2025")
                     break
         d+=0.2
+
+    print(solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=5.2))
+    print(solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=8))
