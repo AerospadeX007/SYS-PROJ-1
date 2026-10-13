@@ -226,19 +226,16 @@ def mer_insulation_mass(geometry, info):  # UPDATE TO SPEHRE AREA
     
 def mer_engine_mass(stage_number, propellant_name, number_of_engines, thrust_per_engine_n):  # FINISHED
     propellant_data = PROPELLANT_INFO[propellant_name]["data"]
-    
     if PROPELLANT_INFO[propellant_name]["is_solid"]:
         return 0
-	
     elif stage_number == 1:
-    	exp_ratio = propellant_data["expansion_ratio_1st_stage"]
-    	mass_per_engine = 7.81e4 * thrust_per_engine_n + 3.37e-5 * thrust_per_engine_n * math.sqrt(exp_ratio) + 59
-    	return number_of_engines * mass_per_engine
-    
+        exp_ratio = propellant_data["expansion_ratio_1st_stage"]
+        mass_per_engine = 7.81e4 * thrust_per_engine_n + 3.37e-5 * thrust_per_engine_n * math.sqrt(exp_ratio) + 59
+        return number_of_engines * mass_per_engine
     elif stage_number == 2:
-    	exp_ratio = propellant_data["expansion_ratio_2nd_stage"]
-    	mass_per_engine = 7.81e4 * thrust_per_engine_n + 3.37e-5 * thrust_per_engine_n * math.sqrt(exp_ratio) + 59
-		return number_of_engines * mass_per_engine
+        exp_ratio = propellant_data["expansion_ratio_2nd_stage"]
+        mass_per_engine = 7.81e4 * thrust_per_engine_n + 3.37e-5 * thrust_per_engine_n * math.sqrt(exp_ratio) + 59
+        return number_of_engines * mass_per_engine
 
 
 def mer_thrust_structure_mass(thrust_per_engine_n, number_of_engines):
