@@ -64,13 +64,17 @@ it works for any tank shape. The lecture's spheres were only its first-pass geom
 | LOX/LH2 upper-stage engine | J-2X: 1.307 MN, Isp 448 s, 92:1, O/F 5.5, Pc 9.23 MPa, exit 3.05 m (`TrueConst.J2X`, cited) | Table 2's 0.099 MN engine needed 20-45 engines; team picked J-2X 10/12. `USE_J2X_UPPER_STAGE` |
 | Avionics | One set on stage 2, sized on gross liftoff mass | MER is a whole-vehicle relation; per-stage double counted (Henry). `AVIONICS_MODE` |
 | Payload fairing | 5.2 m cylinder over the 13 m envelope + adapter frustum over the top dome + cone (h = 5.2 m) | Was a full-diameter cylinder, bigger than needed (Henry). `PAYLOAD_RADIAL_CLEARANCE_M`, `NOSE_CONE_HEIGHT_TO_D` |
-| Shells | Aft fairing over the 3 m engine bay + bottom dome; frustum inter-tank and inter-stage; tanks dome to dome | Same as S2_1_HCR so the two codes can be compared |
+| Shells | Aft fairing over the 3 m engine bay + bottom dome; frustum inter-tank; inter-stage over stage 1's top dome; tanks dome to dome | Stage 2's engine bay is already inside its aft fairing. `INTERSTAGE_OVER_UPPER_ENGINE_BAY = True` switches to Henry's 10/14 S2_1_HCR length (top dome + 3 m + stage 2 bottom dome) |
 | Diameter | Lightest D (0.1 m steps, from 5.2 m) with L/D <= 13 and engines that fit in the aft fairing; if none fits up to 25 m, lightest L/D-OK design, flagged | CAD needs real engine counts. `ENFORCE_ENGINE_FIT` |
 
 `python S2_crosscheck_HCR.py` runs our tool and Henry's on all ten team designs at the same
-diameter with Henry's inputs: they agree to 0.000% in mass and cost.
+diameter with Henry's inputs: they agree to 0.000% in mass and cost. With our default inter-stage
+(top dome only) the vehicles come out 0.5-1.3% lighter and 1.0-2.0% cheaper than S2_1_HCR's 10/14
+version; the group picks (lowest mass LOX/LH2 / LOX/LH2, lowest cost N2O4/UDMH / LOX/LH2) don't change.
 
 ## Still open
+- Inter-stage length: Henry's 10/14 S2_1_HCR edit runs the inter-stage over stage 2's engine bay,
+  which S2_1 also covers with stage 2's aft fairing. Pick one; it's one line either way.
 - LOX/RP1 and solid first stages (Jacob, Sharan): the Table 2 engines (3.7 m and 6.6 m exits)
   never fit under the stage. Options: cite a smaller-nozzle engine (e.g. Merlin 1D for RP-1), or
   report them as flagged.
