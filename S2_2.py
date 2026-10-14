@@ -1,6 +1,7 @@
 # author: sharan sajiv menon
 # edits: shaunn pavelik -- cost now uses inert (dry) mass in kg like Section 1, units on
-#        every row, vehicle-level comparison rows, one CSV per design so we don't overwrite
+#        every row, vehicle-level comparison rows, one CSV per design so we don't overwrite,
+#        engine model + engine-fit rows (10/14)
 import csv
 import os
 
@@ -58,6 +59,11 @@ def create_table_of_masses(results: dict, path: str = None):
             for key, label in COMPONENTS:
                 writer.writerow([stage_name, label, sf(stage[key]), "kg"])
             writer.writerow([stage_name, "Engines (count)", stage["number_of_engines"], "-"])
+            writer.writerow([stage_name, "Engine model",
+                             stage["engine_name"] if stage["engine_name"] != "Table 2"
+                             else f"Table 2 {stage['propellant_name']}", "-"])
+            writer.writerow([stage_name, "Engines fit in aft fairing", "yes" if stage["engines_fit"]
+                             else f"no (need {sf(stage['engine_base_diameter_needed'])} m)", "-"])
             writer.writerow([stage_name, "Stage length", sf(stage["stage_length"]), "m"])
             writer.writerow([stage_name, "Stage cost", sf((cost1 if stage is stage1 else cost2) / 1e3),
                              "$B (FY2025)"])

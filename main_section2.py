@@ -55,7 +55,8 @@ def summary(res):
         d=res["vehicle_diameter"], length=res["vehicle_length"], ld=res["length_to_diameter"],
         n1=st1["number_of_engines"], n2=st2["number_of_engines"],
         base1=st1["engine_base_diameter_needed"], base2=st2["engine_base_diameter_needed"],
-        fit=res["engines_fit"], iters=res["iterations"],
+        fit=res["engines_fit"], fit_fallback=res.get("fit_fallback", False), iters=res["iterations"],
+        engine1=st1["engine_name"], engine2=st2["engine_name"],
         inert1=st1["dry_mass_with_margin"], inert2=st2["dry_mass_with_margin"],
         prop1=st1["propellant_mass"], prop2=st2["propellant_mass"],
         vl_inert1=res["ideal"]["m_in_1"], vl_inert2=res["ideal"]["m_in_2"],
@@ -95,10 +96,14 @@ if __name__ == "__main__":
         # sensitivities on the min-mass design
         dv = best_m["dv1"]
         fixed = S2_1.run_systems_analysis(s1, s2, dv, close_delta_v=False)
-        fit, _ = S2_1.choose_diameter(s1, s2, dv, enforce_engine_fit=True)
+        fit, _ = S2_1.choose_diameter(s1, s2, dv, enforce_engine_fit=False)   # L/D only
+        S2_1.USE_J2X_UPPER_STAGE = False                 # what the J-2X swap bought us
+        table2 = S2_1.run_systems_analysis(s1, s2, dv)
+        S2_1.USE_J2X_UPPER_STAGE = True
         entry["sensitivity"] = {
+            "table2_upper_engine": None if table2 is None or not table2["converged"] else summary(table2),
             "fixed_propellant": None if fixed is None else summary(fixed),
-            "engine_fit_enforced": None if fit is None else summary(fit),
+            "engine_fit_not_enforced": None if fit is None else summary(fit),
         }
 
         # where the best split moves once the MERs are in
@@ -132,7 +137,8 @@ if __name__ == "__main__":
                            LD=res["length_to_diameter"] if ok else None,
                            engines_1=res["stage_1"]["number_of_engines"] if ok else None,
                            engines_2=res["stage_2"]["number_of_engines"] if ok else None,
-                           engines_fit=res["engines_fit"] if ok else None)
+                           engines_fit=res["engines_fit"] if ok else None,
+                           engine_2=res["stage_2"]["engine_name"] if ok else None)
                 rows_out.append(row)
                 if kind == "min-mass":
                     grid_rows.append(dict(stage1=s1, stage2=s2, vl_m0=split["m_0"],

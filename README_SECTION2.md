@@ -57,11 +57,21 @@ Reproduces every number in the Lecture 8 SSTO example: engines 2236 kg, gimbals 
 Insulation (Greg's question): the MER is kg per m^2 of tank area (2.88 LH2, 1.123 LOX/LCH4), so
 it works for any tank shape. The lecture's spheres were only its first-pass geometry.
 
-## Team decisions still open
+## Assumptions now in the code (10/14, after Henry's S2_1_HCR comparison)
 
-- Require engines to fit inside the stage diameter? (`ENFORCE_ENGINE_FIT`, off by default - on, designs go to 8-24 m diameters, and LOX/RP1 and solid first stages find no diameter that fits)
-- Payload fairing carried for the whole stage 2 burn (conservative) vs dropped early
-- Avionics/wiring M0 = mass at that stage's ignition (stage + everything above), L = stage length
-- Section 1 delta-V split as the S.2.1 input (handout) vs the system-level optimum (the sweep graph)
-- Nose cone height = 1.0 x diameter, 0.5 m inter-tank gap, 0.5 m payload adapter gap, 0.2 m radial clearance
-- Gimbals on solid stages (included - solids still need TVC)
+| Item | Setting | Why |
+|---|---|---|
+| LOX/LH2 upper-stage engine | J-2X: 1.307 MN, Isp 448 s, 92:1, O/F 5.5, Pc 9.23 MPa, exit 3.05 m (`TrueConst.J2X`, cited) | Table 2's 0.099 MN engine needed 20-45 engines; team picked J-2X 10/12. `USE_J2X_UPPER_STAGE` |
+| Avionics | One set on stage 2, sized on gross liftoff mass | MER is a whole-vehicle relation; per-stage double counted (Henry). `AVIONICS_MODE` |
+| Payload fairing | 5.2 m cylinder over the 13 m envelope + adapter frustum over the top dome + cone (h = 5.2 m) | Was a full-diameter cylinder, bigger than needed (Henry). `PAYLOAD_RADIAL_CLEARANCE_M`, `NOSE_CONE_HEIGHT_TO_D` |
+| Shells | Aft fairing over the 3 m engine bay + bottom dome; frustum inter-tank and inter-stage; tanks dome to dome | Same as S2_1_HCR so the two codes can be compared |
+| Diameter | Lightest D (0.1 m steps, from 5.2 m) with L/D <= 13 and engines that fit in the aft fairing; if none fits up to 25 m, lightest L/D-OK design, flagged | CAD needs real engine counts. `ENFORCE_ENGINE_FIT` |
+
+`python S2_crosscheck_HCR.py` runs our tool and Henry's on all ten team designs at the same
+diameter with Henry's inputs: they agree to 0.000% in mass and cost.
+
+## Still open
+- LOX/RP1 and solid first stages (Jacob, Sharan): the Table 2 engines (3.7 m and 6.6 m exits)
+  never fit under the stage. Options: cite a smaller-nozzle engine (e.g. Merlin 1D for RP-1), or
+  report them as flagged.
+- Payload fairing carried for the whole stage 2 burn (conservative) vs dropped early.

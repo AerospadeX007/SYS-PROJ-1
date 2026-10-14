@@ -148,7 +148,7 @@ def plot_vl_vs_sl(res, path):
 # ------------------------------------------------------------------
 # 3. delta-V split sweep at system level (does the Section 1 optimum still hold?)
 # ------------------------------------------------------------------
-def sweep_dv1(stage1, stage2, dv_step=50.0, enforce_engine_fit=False):
+def sweep_dv1(stage1, stage2, dv_step=50.0, enforce_engine_fit=S2_1.ENFORCE_ENGINE_FIT):
     rows = []
     dv = 200.0
     while dv < TrueConst.mission_delV_ms:
@@ -204,67 +204,77 @@ def plot_dv1_sweep(stage1, stage2, rows, path):
 # 4. Side-view sketch with dimensions (CAD starting point)
 # ------------------------------------------------------------------
 def plot_vehicle_sketch(res, path):
-    from matplotlib.patches import Wedge, Rectangle, Polygon
+    """Side view to scale: shells (aft fairing, inter-tank and inter-stage frustums, payload fairing),
+    tanks (cylinder + domes, or spheres), the engine cluster and the 5.2 m x 13 m payload envelope.
+    Engine cluster is drawn at the base width it needs (red if wider than the aft fairing)."""
+    from matplotlib.patches import Wedge, Rectangle, Polygon, Circle
     D = res["vehicle_diameter"]
-    R = D / 2
     eng = S2_1.ENGINE_LENGTH_M
-    fig, ax = plt.subplots(figsize=(5.2, 10))
+    fig, ax = plt.subplots(figsize=(5.6, 10))
     y0 = 0.0
     for k in (1, 2):
         st = res[f"stage_{k}"]
-        lay = st["layout"]
-        col = STAGE_COLOR[k]
-        body = st["stage_length"] - (lay["top_length"] if k == 2 else 0.0)
-        ax.add_patch(Rectangle((-R, y0), D, body, fc="white", ec=INK2, lw=1.2, zorder=1))
-        # tanks: cylinder + hemispherical domes (or a sphere), bottom -> top
-        yy = y0 + lay["aft_length"]
-        tanks = st["geometry"]["tanks"]
-        for i, t in enumerate(tanks):
-            rr = t["diameter"] / 2 * 0.97
-            ax.add_patch(Rectangle((-rr, yy), 2 * rr, t["cyl_length"], fc=col, alpha=0.3, ec="none", zorder=3))
-            ax.add_patch(Wedge((0, yy), t["end_height"] * 0.97, 180, 360, fc=col, alpha=0.3, ec="none",
-                               zorder=3))
-            ax.add_patch(Wedge((0, yy + t["cyl_length"]), t["end_height"] * 0.97, 0, 180,
-                               fc=col, alpha=0.3, ec="none", zorder=3))
-            yy += t["cyl_length"]
-            if i == 0 and len(tanks) == 2:
-                yy += lay["intertank_length"]
-        # engines: stage 1 at the base, stage 2 hangs into the inter-stage
-        ey = y0 if k == 1 else y0 - eng
-        ax.add_patch(Polygon([(-R * 0.55, ey), (-R * 0.25, ey + eng), (R * 0.25, ey + eng),
-                              (R * 0.55, ey)], fc=INK2, alpha=0.45, ec="none"))
-        ax.text(R + 0.8, y0 + body / 2,
-                f"Stage {k}: {DISPLAY[st['propellant_name']]}\n{st['stage_length']:.1f} m long\n"
-                f"{st['number_of_engines']} engines\n{st['stage_mass']/1e3:,.0f} t",
-                va="center", fontsize=9, color=INK)
-        if k == 2:
-            # payload fairing: cylinder + cone, with the 5.2 m x 13 m envelope dotted inside
-            nose = S2_1.NOSE_CONE_LENGTH_TO_D * D
-            cyl = lay["top_length"] - nose
-            yf = y0 + body
-            ax.add_patch(Rectangle((-R, yf), D, cyl, fc="#f4f3f0", ec=INK2, lw=1.2, zorder=1))
-            ax.add_patch(Polygon([(-R, yf + cyl), (0, yf + cyl + nose), (R, yf + cyl)],
-                                 fc="#f4f3f0", ec=INK2, lw=1.2))
-            env = TrueConst.fairing
-            ye = yf + cyl - env["fairing_height_m"]
-            ax.add_patch(Rectangle((-env["fairing_diameter_m3"] / 2, ye), env["fairing_diameter_m3"],
-                                   env["fairing_height_m"], fc="none", ec=INK2, lw=1, ls=":", zorder=4))
-            ax.text(0, ye + env["fairing_height_m"] / 2, "payload\nenvelope", ha="center",
-                    va="center", fontsize=7.5, color=INK2, zorder=4)
+        lay, col = st["layout"], STAGE_COLOR[k]
+        # shells, bottom -> top
+        z = y0
+        for name, length, rb, rt, _ in lay["shells"]:
+            if name == "payload fairing":
+                r_plf = S2_1.PLF_DIAMETER_M / 2
+                h_env = TrueConst.fairing["fairing_height_m"]
+                nose = S2_1.NOSE_CONE_HEIGHT_TO_D * S2_1.PLF_DIAMETER_M
+                za = y0 + eng + lay["tank_length"] - rb          # top tank's upper equator
+                pts = [(-rb, za), (-r_plf, za + rb), (-r_plf, za + rb + h_env), (0, za + rb + h_env + nose),
+                       (r_plf, za + rb + h_env), (r_plf, za + rb), (rb, za)]
+                ax.add_patch(Polygon(pts, closed=True, fc="#f4f3f0", ec=INK2, lw=1.2, zorder=1))
+                env = TrueConst.fairing
+                ax.add_patch(Rectangle((-env["fairing_diameter_m3"] / 2, za + rb), env["fairing_diameter_m3"],
+                                       h_env, fc="none", ec=INK2, lw=1, ls=":", zorder=4))
+                ax.text(0, za + rb + h_env / 2, "payload\nenvelope", ha="center", va="center", fontsize=7.5,
+                        color=INK2, zorder=4)
+                continue
+            if name == "aft fairing":
+                z0 = y0
+            elif name == "inter-tank fairing":
+                t0 = lay["shells"][0][2]
+                z0 = y0 + eng + st["geometry"]["tanks"][0]["length"] - t0
+            else:   # inter-stage over stage 1's top dome
+                z0 = y0 + eng + lay["tank_length"] - rb
+            ax.add_patch(Polygon([(-rb, z0), (rb, z0), (rt, z0 + length), (-rt, z0 + length)], closed=True,
+                                 fc="white", ec=INK2, lw=1.2, zorder=1))
+        # tanks
+        zt = y0 + eng
+        for t in st["geometry"]["tanks"]:
+            r, cyl = t["radius"] * 0.97, t["cyl_length"]
+            if cyl > 0:
+                ax.add_patch(Rectangle((-r, zt + t["radius"]), 2 * r, cyl, fc=col, alpha=0.35, ec="none", zorder=3))
+                ax.add_patch(Wedge((0, zt + t["radius"]), r, 180, 360, fc=col, alpha=0.35, ec="none", zorder=3))
+                ax.add_patch(Wedge((0, zt + t["radius"] + cyl), r, 0, 180, fc=col, alpha=0.35, ec="none", zorder=3))
+            else:
+                ax.add_patch(Circle((0, zt + t["radius"]), r, fc=col, alpha=0.35, ec="none", zorder=3))
+            zt += t["length"]
+        # engine cluster in the engine bay
+        need = st["engine_base_diameter_needed"] / 2
+        fit_col = INK2 if st["engines_fit"] else "#e34948"
+        ax.add_patch(Polygon([(-need, y0), (-need * 0.45, y0 + eng), (need * 0.45, y0 + eng), (need, y0)],
+                             fc=fit_col, alpha=0.5, ec="none", zorder=2))
+        label = (f"Stage {k}: {DISPLAY[st['propellant_name']]}\n{st['stage_length']:.1f} m long\n"
+                 f"{st['number_of_engines']} x {st['engine_name']}\n{st['stage_mass']/1e3:,.0f} t")
+        ax.text(D / 2 + 1.0, y0 + st["stage_length"] / 2 - (6 if k == 2 else 0), label, va="center",
+                fontsize=9, color=INK)
         y0 += st["stage_length"]
     total = res["vehicle_length"]
-    ax.annotate("", (-R - 1.2, 0), (-R - 1.2, total),
-                arrowprops=dict(arrowstyle="<->", color=INK, lw=1.2))
-    ax.text(-R - 1.7, total / 2, f"{total:.1f} m\nL/D = {res['length_to_diameter']:.1f}",
-            ha="right", va="center", fontsize=10, color=INK)
-    ax.annotate("", (-R, -1.8), (R, -1.8), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.2))
+    ax.annotate("", (-D / 2 - 1.2, 0), (-D / 2 - 1.2, total), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.2))
+    ax.text(-D / 2 - 1.7, total / 2, f"{total:.1f} m\nL/D = {res['length_to_diameter']:.1f}", ha="right",
+            va="center", fontsize=10, color=INK)
+    ax.annotate("", (-D / 2, -1.8), (D / 2, -1.8), arrowprops=dict(arrowstyle="<->", color=INK, lw=1.2))
     ax.text(0, -3.6, f"D = {D:.1f} m", ha="center", fontsize=10)
-    ax.set_xlim(-R - 11, R + 12)
+    ax.set_xlim(-D / 2 - 11, D / 2 + 12)
     ax.set_ylim(-5, total + 2)
     ax.set_aspect("equal")
     ax.axis("off")
-    ax.set_title(f"{pair_name(res['stage_1_propellant'], res['stage_2_propellant'])}\n"
-                 f"system-level sketch (not to CAD detail)", fontsize=11)
+    note = "" if res["engines_fit"] else "\nred: engines need a wider base than the aft fairing"
+    ax.set_title(f"{pair_name(res['stage_1_propellant'], res['stage_2_propellant'])}  |  "
+                 f"\u0394V\u2081 = {res['delta_v_1']/1e3:.2f} km/s\nsystem-level sketch to scale{note}", fontsize=10.5)
     return _save(fig, path)
 
 
