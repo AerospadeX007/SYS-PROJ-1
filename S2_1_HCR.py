@@ -55,7 +55,7 @@ def engine_pack_diameter(N: int, De: float):
     if N <= len(PACK_RATIOS):
         k = PACK_RATIOS[N - 1]
     else: 
-        k=1.15*np.sqrt(N) #past N=6, can use this formula for a general approximation 
+        k=1.15*np.sqrt(float(N)) #past N=6, can use this formula for a general approximation 
     return k*De #get ratio of outer/inner * inner diameter to get diameter needed for engines
 
 #propellant helper for easier access 
@@ -199,7 +199,7 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
 
     if stage_num==1:
         L_IS=0.0 #3m engine bay already counted in stage 2 L_aft
-        slant_is=np.sqrt((r_top-r_s2_bot)**2+r_top**2)
+        slant_is=np.sqrt((r_top-r_s2_bot)**2+(r_top+3.0+r_s2_bot)**2)
         m_IS=shell_fairing_mass(np.pi*(r_top+r_s2_bot)*slant_is)
         L_PLF=0.0
         m_PLF=0.0
