@@ -157,6 +157,10 @@ if __name__ == "__main__":
             team.append(dict(who=who, s1=s1, s2=s2, kind=kind, **{k: d[k] for k in
                              ("vl_m0", "sl_m0", "vl_cost", "sl_cost")}))
     G.plot_team_designs(team, "figs/S2_group_team_designs.png")
+    for t in team:
+        t["fit"] = report["people"][t["who"]]["designs"][t["kind"]]["fit"]
+    G.plot_team_scatter(team, "figs/S2_group_team_scatter.png",
+                        picks=(("Henry Rowley", "min-mass"), ("Shaunn Pavelik", "min-cost")))
 
     with open("csvs/S2_report.json", "w") as f:
         json.dump(report, f, indent=1, default=float)

@@ -321,6 +321,52 @@ def plot_team_designs(team, path):
 
 
 # ------------------------------------------------------------------
+# 4c. Group graphic: the ten team designs on mass vs cost (S.2.3), VL -> SL arrows
+# ------------------------------------------------------------------
+def plot_team_scatter(team, path, picks=(), xlim=(1200, 2250), ylim=(9.8, 12.8)):
+    """team: dicts with who, s1, s2, kind, vl_m0, sl_m0 [kg], vl_cost, sl_cost [$M], fit (bool).
+    Gray dot = vehicle level, arrow to the system-level point. Hollow = engines don't fit the stage.
+    picks: (who, kind) pairs to ring and label as the group's selections. Designs outside the
+    window (the solid first stage) are listed in a box instead of squashing the plot."""
+    names = list(dict.fromkeys(t["who"] for t in team))
+    cols = dict(zip(names, ["#2a78d6", "#1baf7a", "#eb6834", "#8e5bb5", "#e0a526"]))
+    fig, ax = plt.subplots(figsize=(11, 6.2))
+    off = []
+    for t in team:
+        c = cols[t["who"]]
+        x0, y0 = t["vl_m0"] / 1e3, t["vl_cost"] / 1e3
+        x1, y1 = t["sl_m0"] / 1e3, t["sl_cost"] / 1e3
+        if not (xlim[0] <= x1 <= xlim[1] and ylim[0] <= y1 <= ylim[1]):
+            off.append(f"{DISPLAY[t['s1']]} / {DISPLAY[t['s2']]} {t['kind']}: {x1:,.0f} t, ${y1:.2f}B")
+            continue
+        ax.annotate("", (x1, y1), (x0, y0), arrowprops=dict(arrowstyle="-|>", color=c, lw=1.3, alpha=0.6))
+        ax.plot(x0, y0, "o", ms=6, color=VL_COLOR, zorder=3)
+        mk = "o" if t["kind"] == "min-mass" else "s"
+        ax.plot(x1, y1, mk, ms=11, mec=c, mew=2.2, mfc=c if t["fit"] else "white", zorder=4)
+        if (t["who"], t["kind"]) in picks:
+            ax.plot(x1, y1, "o", ms=26, mfc="none", mec=INK, mew=1.6, zorder=5)
+            ax.annotate(f"{x1:,.0f} t, ${y1:.2f}B", (x1, y1), xytext=(14, -22), textcoords="offset points",
+                        fontsize=10, fontweight="bold", color=INK)
+    for w in names:
+        s = next(t for t in team if t["who"] == w)
+        ax.plot([], [], "o", ms=9, color=cols[w], label=f"{DISPLAY[s['s1']]} / {DISPLAY[s['s2']]} ({w.split()[-1]})")
+    ax.plot([], [], "o", ms=6, color=VL_COLOR, label="vehicle level (Section 1)")
+    ax.plot([], [], "o", ms=9, mfc="white", mec=INK2, mew=2, label="engines don't fit the stage")
+    ax.plot([], [], "s", ms=9, mfc=INK2, mec=INK2, label="square = min-cost, circle = min-mass")
+    ax.legend(frameon=False, fontsize=9.5, loc="upper left")
+    if off:
+        ax.text(0.99, 0.97, "Off the chart:\n" + "\n".join(off), transform=ax.transAxes, ha="right", va="top",
+                fontsize=9, color=INK2, bbox=dict(fc="white", ec=GRID, boxstyle="round,pad=0.4"))
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    ax.set_xlabel("Gross liftoff mass (t)")
+    ax.set_ylabel("NRE program cost ($B, FY2025)")
+    ax.set_title("Team 3 designs: vehicle level (gray) to system level (color); ringed = group picks", loc="left")
+    fig.tight_layout()
+    return _save(fig, path)
+
+
+# ------------------------------------------------------------------
 # 5. Group graphic: system-level growth over vehicle level, all 25 pairs
 # ------------------------------------------------------------------
 def plot_group_matrix(rows, path, key="mass"):
