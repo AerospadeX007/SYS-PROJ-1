@@ -71,10 +71,10 @@ it works for any tank shape. The lecture's spheres were only its first-pass geom
 diameter with Henry's inputs: they agree to 0.000% in mass and cost. With our default inter-stage
 (top dome only) the vehicles come out 0.5-1.3% lighter and 1.0-2.0% cheaper than S2_1_HCR's 10/14
 version; the group picks (lowest mass LOX/LH2 / LOX/LH2, lowest cost N2O4/UDMH / LOX/LH2) don't change.
+Decided 10/14 (Henry): that S2_1_HCR edit was a mistake (it counts stage 2's engine bay twice), so the
+team keeps S2_1's default (`INTERSTAGE_OVER_UPPER_ENGINE_BAY = False`) and S2_1.py is the submitted tool.
 
 ## Still open
-- Inter-stage length: Henry's 10/14 S2_1_HCR edit runs the inter-stage over stage 2's engine bay,
-  which S2_1 also covers with stage 2's aft fairing. Pick one; it's one line either way.
 - LOX/RP1 and solid first stages (Jacob, Sharan): the Table 2 engines (3.7 m and 6.6 m exits)
   never fit under the stage. Options: cite a smaller-nozzle engine (e.g. Merlin 1D for RP-1), or
   report them as flagged.
