@@ -4,6 +4,11 @@ from s1.s1_3_cost import stage_cost
 import utils.TrueConst as TrueConst
 
 
+#AUTHOR: Henry Rowley
+#Created: 10/13/2026
+#Note all masses in kg, velocities in m/s, g0 in m/s^2, thrust in N, etc. Final costs in M$
+
+
 #gometry helpers
 
 def tank_geometry(V: float, D: float): 
@@ -20,23 +25,22 @@ def tank_geometry(V: float, D: float):
         A_total=4.0*np.pi*r**2
     return L_cyl, A_total, L_total
 
-def payload_fairing_geometry(D: float):
+def payload_fairing_geometry(r_top: float):
     d_plf=TrueConst.fairing["fairing_diameter_m3"] # 5.2m requirement
     h_plf=TrueConst.fairing["fairing_height_m"] # 13.0m cylinder height requirement
-    r_top=d_plf/2.0
-    r_base=D/2.0
+    r_plf=d_plf/2.0
 
-    #conical frustum tapering from core diam D down to 5.2m
-    slant_barrel=np.sqrt((r_base-r_top)**2+h_plf**2)
-    A_barrel=np.pi*(r_base+r_top)*slant_barrel
+    #frustum adapter from top tank equator to 5.2m cylinder over top dome height
+    slant_adapter=np.sqrt((r_top-r_plf)**2+r_top**2)
+    A_adapter=np.pi*(r_top+r_plf)*slant_adapter
 
-    #aerodynamic nose cone on top of 5.2m ring
-    h_cone=d_plf # nose cone height equal to payload diameter
-    slant_cone=np.sqrt(r_top**2+h_cone**2)
-    A_cone=np.pi*r_top*slant_cone
+    #straight 5.2m cylinder for 13m payload + nose cone on top
+    A_barrel=np.pi*d_plf*h_plf
+    h_cone=d_plf
+    slant_cone=np.sqrt(r_plf**2+h_cone**2)
+    A_cone=np.pi*r_plf*slant_cone
 
-    # total geometry and mass from MER
-    A_total=A_barrel+A_cone
+    A_total=A_adapter+A_barrel+A_cone
     L_total=h_plf+h_cone
     m_fairing=shell_fairing_mass(A_total)
 
@@ -51,7 +55,7 @@ def engine_pack_diameter(N: int, De: float):
     if N <= len(PACK_RATIOS):
         k = PACK_RATIOS[N - 1]
     else: 
-        k=1.15*np.sqrt(N)
+        k=1.15*np.sqrt(N) #past N=6, can use this formula for a general approximation 
     return k*De #get ratio of outer/inner * inner diameter to get diameter needed for engines
 
 #propellant helper for easier access 
@@ -71,7 +75,7 @@ def get_stage_prop_specs(prop_name: str, stage_num: int):
     Pc=data[f"chamber_pressure_{p}_stage_MPa"]*1e6
     eps=data[f"expansion_ratio_{p}_stage"]
 
-    if is_solid:
+    if is_solid: #simpler case
         MR=0.0
         rho_ox=0.0
         rho_fuel=0.0
@@ -81,7 +85,7 @@ def get_stage_prop_specs(prop_name: str, stage_num: int):
         tank_ox=0.0
         tank_fuel=0.0
     else:
-        MR=float(data["fuel_mass_ratio"].split(":")[0])
+        MR=float(data["fuel_mass_ratio"].split(":")[0]) #get fuel mass ratio(formatted as string in trueconst)
         rho_solid=0.0
 
         if "LOX" in prop_name:
@@ -126,7 +130,7 @@ def get_stage_prop_specs(prop_name: str, stage_num: int):
     }
 
 #stage sizing
-def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, D: float, M0: float):
+def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, D: float, M0: float, r_s2_bot: float=0.0):
     specs=get_stage_prop_specs(prop_name, stage_num)
 
     if stage_num==1: #twr needed depends on stage
@@ -142,10 +146,14 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
     base_needed=engine_pack_diameter(N_eng, specs["De"])
     engines_fit=(base_needed<=D)
 
-    #propellant tanks and casing
+    #propellant tanks and casing/interstage shells
     if specs["is_solid"]:
         V_solid=m_pr/specs["rho_solid"] #volume of solid fuel
         L_cyl, A_tank, L_tank=tank_geometry(V_solid, D) #get tank geometry
+        r_bot=(L_tank-L_cyl)/2.0
+        r_top=r_bot
+        r_f=r_ox=L_cyl_f=L_tank_f=L_cyl_ox=L_tank_ox=0.0
+        tank_order="Solid_Single"
         m_tank=0.0
         m_ins=0.0
         m_casing=0.135*m_pr #casing accounts for everything(why other m 0 for solids)
@@ -162,25 +170,43 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
         m_tank=specs["tank_ox"]*V_ox+specs["tank_fuel"]*V_fuel
         m_ins=specs["ins_ox"]*A_tank_ox+specs["ins_fuel"]*A_tank_f #insulation mass
         m_casing=0.0
-        m_eng=N_eng*(7.81e-4*specs["T_motor"]+3.37e-5*specs["T_motor"]*np.sqrt(specs["eps"])+59.0)
-        m_intertank=shell_fairing_mass(np.pi*D*(D)) #height will be dome caps radius(D/2 * 2 caps) 
-        tank_len_total=L_tank_f+L_tank_ox+1.0
+        m_eng=N_eng*(7.81e-4*specs["T_motor"]+3.37e-5*specs["T_motor"]*np.sqrt(specs["eps"])+59.0) #note eps is the expansion ratio
+        tank_len_total=L_tank_f+L_tank_ox
 
+        #figure out tank diameters and determine placement and furstum shell between tanks
+        r_f=(L_tank_f-L_cyl_f)/2.0
+        r_ox=(L_tank_ox-L_cyl_ox)/2.0
+        if r_f>=r_ox:
+            r_bot, r_top=r_f, r_ox
+            tank_order="Fuel_Bot_Ox_Top"
+        else:
+            r_bot, r_top=r_ox, r_f
+            tank_order="Ox_Bot_Fuel_Top"
+
+        L_intertank=r_bot+r_top
+        slant_it=np.sqrt((r_bot-r_top)**2+L_intertank**2)
+        m_intertank=shell_fairing_mass(np.pi*(r_bot+r_top)*slant_it)
+
+    #presumably needed for any engine(solids and non-solids)
     m_gimbal=N_eng*237.8*(specs["T_motor"]/specs["Pc"])**0.9375
     m_thrust_struct=2.55e-4*T_total
-    #fairings
-    L_aft=3.0 #assume 3m engine length as per project description for interstage fairing TODO: maybe update to be larger for j-2x? quite a long engine probably
-    m_aft=shell_fairing_mass(np.pi*D*L_aft)
+    #note assumptions that aft shells are vertical, and interstage shell can slant 
+    #note IS refers to interstage
+
+    L_aft=3.0
+    h_aft_shell=r_bot+L_aft
+    m_aft=shell_fairing_mass(2.0*np.pi*r_bot*h_aft_shell)
 
     if stage_num==1:
-        L_IS=3.0
-        m_IS=shell_fairing_mass(np.pi*D*L_IS)
+        L_IS=0.0 #3m engine bay already counted in stage 2 L_aft
+        slant_is=np.sqrt((r_top-r_s2_bot)**2+r_top**2)
+        m_IS=shell_fairing_mass(np.pi*(r_top+r_s2_bot)*slant_is)
         L_PLF=0.0
         m_PLF=0.0
     else:
-        L_IS=0.0 #interstage considered part of stage 1
+        L_IS=0.0
         m_IS=0.0
-        L_PLF, m_PLF=payload_fairing_geometry(D) #use helper to get payload length and mass
+        L_PLF, m_PLF=payload_fairing_geometry(r_top)
 
     #avionics and wiring
     if stage_num==2:
@@ -189,9 +215,9 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
         m_avionics=0.0
 
     #calculate stage length
-    stage_length=tank_len_total+L_aft+L_PLF #note that we don't add L_IS as this would double count the overlapping interstage/stage 2 engine region
+    stage_length=tank_len_total+L_aft+L_PLF+L_IS 
     
-    m_wiring=1.058*np.sqrt(M0)*(stage_length**0.25)
+    m_wiring=1.058*np.sqrt(m_supported)*(stage_length**0.25)
 
     dry_raw=(m_tank+m_ins+m_casing+m_eng+m_thrust_struct+m_gimbal+
              m_intertank+m_aft+m_IS+m_PLF+m_avionics+m_wiring)
@@ -205,7 +231,11 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
         "engines_fit": engines_fit, "m_tank": m_tank, "m_ins": m_ins,
         "m_casing": m_casing, "m_eng": m_eng, "m_thrust_struct": m_thrust_struct,
         "m_gimbal": m_gimbal, "m_intertank": m_intertank, "m_aft": m_aft,
-        "m_IS": m_IS, "m_PLF": m_PLF, "m_avionics": m_avionics, "m_wiring": m_wiring
+        "m_IS": m_IS, "m_PLF": m_PLF, "m_avionics": m_avionics, "m_wiring": m_wiring,
+        "delta_stage": dry_budgeted/m_supported, "epsilon_stage": dry_budgeted/stage_mass,
+        "tank_order": tank_order, "r_f": r_f, "r_ox": r_ox,
+        "r_bot": r_bot, "r_top": r_top,
+        "L_tank_f": L_tank_f, "L_cyl_f": L_cyl_f, "L_tank_ox": L_tank_ox, "L_cyl_ox": L_cyl_ox
     }
 
 def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now let's assume set stage diam of 5.2m
@@ -236,7 +266,7 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
     m_pr_1=initial_guess["m_pr_1"]
     m_pr_2=initial_guess["m_pr_2"]
 
-    tol=1e-4 #0.01% change in M0 between iterations = converged
+    tol=1e-6 #0.01% change in M0 between iterations = converged
     max_iter=100
     converged=False
 
@@ -248,7 +278,8 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
         m_pr_2=m_0_2_new-m_f_2 #updated stage 2 prop mass
 
         #size stage 1
-        s1=size_stage(1, prop1, m_pr_1, M0, D, M0)
+        M0_curr=M0-m_0_2+m_0_2_new
+        s1=size_stage(1, prop1, m_pr_1, M0_curr, D, M0_curr, r_s2_bot=s2["r_bot"]) #note r_s2_bot is the radius of the bottom fuel tank of stage 2
         m_f_1=m_0_2_new+s1["dry_budgeted"] #final mass will include updated stage 2 gross mass plus stage 1inert mass(w/ 30% mass margin)
         M0_new=m_f_1/r1 #calculate gross liftoff mass to get dv1
         m_pr_1=M0_new-m_f_1 #new stage 1 prop mass
@@ -265,7 +296,9 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
 
     #once we converge, we can easily extract all needed information:
     s2=size_stage(2, prop2, m_pr_2, m_0_2, D, M0)
-    s1=size_stage(1, prop1, m_pr_1, M0, D, M0)
+    m_0_2=m_pl+s2["stage_mass"]
+    s1=size_stage(1, prop1, m_pr_1, M0, D, M0, r_s2_bot=s2["r_bot"])
+    M0=m_0_2+s1["stage_mass"]
 
     #calculate vehicle L and L/D ratio
     L_total=s1["stage_length"]+s2["stage_length"]
@@ -286,6 +319,7 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
             "dV2": dV2,
             "M0": M0,
             "ideal_M0": initial_guess["m_0"],
+            "mass_diff_pct": ((M0-initial_guess["m_0"])/initial_guess["m_0"])*100.0,
             "L_total": L_total,
             "ld_ratio": ld_ratio,
             "ld_ok": ld_ok,
@@ -297,7 +331,7 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
         }
 
 
-if __name__=="__main__":
+if __name__=="__main__": #just quick example of how to call, need to iterate through this in 2.2 to get the values we want
     d=5.2
     while d<=13.0:
         res=solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=round(d, 2))
@@ -314,6 +348,3 @@ if __name__=="__main__":
                     print(f"M0: {res['M0']:,.0f} kg | L_tot: {res['L_total']:.1f}m | Cost: ${res['total_cost_M']/1000.0:.3f}B FY2025")
                     break
         d+=0.2
-
-    print(solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=5.2))
-    print(solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=8))
