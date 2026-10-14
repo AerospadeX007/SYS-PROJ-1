@@ -58,6 +58,13 @@ AVIONICS_MODE = "vehicle"
 PAYLOAD_RADIAL_CLEARANCE_M = 0.0
 NOSE_CONE_HEIGHT_TO_D = 1.0     # cone height / fairing diameter
 
+# Inter-stage fairing length (team to confirm, 10/14). False = it covers stage 1's top dome only,
+# because stage 2's 3 m engine bay and bottom dome are already inside stage 2's aft fairing.
+# True = Henry's 10/14 S2_1_HCR definition: the inter-stage frustum runs from stage 1's top-tank
+# equator to stage 2's bottom-tank equator (top dome + 3 m + stage 2 bottom dome), so that section
+# gets both an aft fairing and an inter-stage shell. Stage length is the same either way.
+INTERSTAGE_OVER_UPPER_ENGINE_BAY = False
+
 # Vehicle diameter. None = pick automatically (choose_diameter below): the lightest
 # diameter that meets L/D <= 13 and fits the engines in the aft fairing.
 STAGE_1_DIAMETER_M = None
@@ -258,7 +265,7 @@ def stage_layout(stage_number, geometry, upper_bottom_radius=None):
                   bottom dome | bottom tank | inter-tank frustum from the bottom tank's equator to the
                   top tank's equator | top tank
     Stage 1 top:  inter-stage frustum over stage 1's top dome, out to stage 2's aft fairing radius
-                  (dropped with stage 1)
+                  (dropped with stage 1; see INTERSTAGE_OVER_UPPER_ENGINE_BAY)
     Stage 2 top:  payload fairing = adapter frustum over the top dome, cylinder over the 13 m payload
                   envelope, cone nose of height = fairing diameter
     Tanks touch dome to dome, so stage length = engine bay + tank lengths (+ fairing on stage 2).
@@ -281,9 +288,11 @@ def stage_layout(stage_number, geometry, upper_bottom_radius=None):
     if stage_number == 1:
         r_up = upper_bottom_radius if upper_bottom_radius else r_top
         top_length = r_top
+        if INTERSTAGE_OVER_UPPER_ENGINE_BAY:     # S2_1_HCR (10/14): also over stage 2's engine bay + dome
+            top_length += ENGINE_LENGTH_M + r_up
         shells.append(("inter-stage fairing", top_length, r_top, r_up,
                        frustum_side_area(r_top, r_up, top_length)))
-        added_length = 0.0                      # inter-stage covers the top dome only
+        added_length = 0.0                      # that length is already in stage 2's aft fairing
     else:
         r_plf = PLF_DIAMETER_M / 2
         nose = NOSE_CONE_HEIGHT_TO_D * PLF_DIAMETER_M

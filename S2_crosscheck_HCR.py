@@ -5,6 +5,11 @@ Runs both on every teammate's min-mass and min-cost design at the diameter Henry
 with S2_1 set to Henry's inputs (J-2X at Table 2's O/F 6.03 and 9.1 MPa), and prints the
 difference in gross mass and cost. Two codes written separately agreeing is our S.2.1 verification.
 
+Two S2_1 columns:
+  same inputs : S2_1 with INTERSTAGE_OVER_UPPER_ENGINE_BAY = True (Henry's 10/14 inter-stage length)
+  S2_1 default: inter-stage over stage 1's top dome only (what main_section2.py uses)
+The first should agree to round-off; the second shows what the inter-stage definition is worth.
+
     python S2_crosscheck_HCR.py      (from the repo root)
 
 Author: Shaunn Pavelik (10/14/2026); S2_1_HCR.py by Henry Rowley
@@ -40,22 +45,40 @@ def henry_diameter(p1, p2, dv1):
     return None, None
 
 
+def s2_1(p1, p2, dv1, D, henry_interstage):
+    saved = S2_1.INTERSTAGE_OVER_UPPER_ENGINE_BAY
+    S2_1.INTERSTAGE_OVER_UPPER_ENGINE_BAY = henry_interstage
+    try:
+        return S2_1._size_vehicle(p1, p2, dv1, D, D)
+    finally:
+        S2_1.INTERSTAGE_OVER_UPPER_ENGINE_BAY = saved
+
+
+def pct(a, b):
+    return (b / a - 1) * 100
+
+
 if __name__ == "__main__":
     TrueConst.J2X["mixture_ratio"] = 6.03          # Henry's inputs
     TrueConst.J2X["chamber_pressure_MPa"] = 9.1
-    print(f"{'design':16s} {'D (m)':>6s} {'HCR m0 (t)':>11s} {'S2_1 m0 (t)':>11s} {'diff':>8s} "
-          f"{'HCR ($B)':>9s} {'S2_1 ($B)':>9s} {'diff':>8s}")
-    worst = 0.0
+    print(f"{'design':16s} {'D (m)':>5s} | {'HCR m0 t':>8s} {'same in.':>8s} {'diff':>7s} {'default':>8s} {'diff':>7s} "
+          f"| {'HCR $B':>7s} {'same in.':>8s} {'diff':>7s} {'default':>8s} {'diff':>7s}")
+    worst_same, spread = 0.0, []
     for who, (p1, p2, dv_m, dv_c) in DESIGNS.items():
         for kind, dv1 in (("min-mass", dv_m), ("min-cost", dv_c)):
             D, h = henry_diameter(p1, p2, dv1)
             if h is None:
                 print(f"{who + ' ' + kind:16s}   no diameter <= 25 m fits the engines in HCR's search")
                 continue
-            u = S2_1._size_vehicle(p1, p2, dv1, D, D)
-            dm = (u["systems_gross_mass"] / h["M0"] - 1) * 100
-            dc = (u["systems_cost_musd"] / h["total_cost_M"] - 1) * 100
-            worst = max(worst, abs(dm), abs(dc))
-            print(f"{who + ' ' + kind:16s} {D:6.1f} {h['M0'] / 1e3:11.1f} {u['systems_gross_mass'] / 1e3:11.1f} "
-                  f"{dm:+7.3f}% {h['total_cost_M'] / 1e3:9.3f} {u['systems_cost_musd'] / 1e3:9.3f} {dc:+7.3f}%")
-    print(f"largest difference: {worst:.3f}%")
+            s = s2_1(p1, p2, dv1, D, True)
+            u = s2_1(p1, p2, dv1, D, False)
+            hm, hc = h["M0"], h["total_cost_M"]
+            sm, sc = s["systems_gross_mass"], s["systems_cost_musd"]
+            um, uc = u["systems_gross_mass"], u["systems_cost_musd"]
+            worst_same = max(worst_same, abs(pct(hm, sm)), abs(pct(hc, sc)))
+            spread += [pct(hm, um), pct(hc, uc)]
+            print(f"{who + ' ' + kind:16s} {D:5.1f} | {hm / 1e3:8.1f} {sm / 1e3:8.1f} {pct(hm, sm):+6.3f}% "
+                  f"{um / 1e3:8.1f} {pct(hm, um):+6.2f}% | {hc / 1e3:7.3f} {sc / 1e3:8.3f} {pct(hc, sc):+6.3f}% "
+                  f"{uc / 1e3:8.3f} {pct(hc, uc):+6.2f}%")
+    print(f"same inputs: largest difference {worst_same:.3f}%")
+    print(f"S2_1 default inter-stage: {min(spread):+.2f}% to {max(spread):+.2f}% vs S2_1_HCR")
