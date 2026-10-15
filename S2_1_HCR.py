@@ -9,9 +9,9 @@ import utils.TrueConst as TrueConst
 #Note all masses in kg, velocities in m/s, g0 in m/s^2, thrust in N, etc. Final costs in M$
 
 
-#gometry helpers
+# geometry helpers
 
-def tank_geometry(V: float, D: float): 
+def tank_geometry(V: float, D: float):  # Gregory Kahn
     r = D/2.0 #radius
     V_domes=(4.0/3.0)*np.pi*r**3 #get dome volumes using hemispherical caps
     if V >= V_domes: #cylindrical case
@@ -25,7 +25,7 @@ def tank_geometry(V: float, D: float):
         A_total=4.0*np.pi*r**2
     return L_cyl, A_total, L_total
 
-def payload_fairing_geometry(r_top: float):
+def payload_fairing_geometry(r_top: float): # Gregory Kahn
     d_plf=TrueConst.fairing["fairing_diameter_m3"] # 5.2m requirement
     h_plf=TrueConst.fairing["fairing_height_m"] # 13.0m cylinder height requirement
     r_plf=d_plf/2.0
