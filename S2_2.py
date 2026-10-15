@@ -61,7 +61,7 @@ def create_table_of_masses(results: dict, path: str = None, person_name: str = N
 
     if path is None:
         tag = f"{results['stage_1_propellant']}__{results['stage_2_propellant']}".replace("/", "_")
-        path = f"csvs/S2_2_table_of_masses_{tag}_dv1_{results['delta_v_1']:.0f}.csv"
+        path = f"csvs/table_of_masses/S2_2_table_of_masses_{tag}_dv1_{results['delta_v_1']:.0f}.csv"
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
 
     ## csv columns: stage, component, mass, unit
@@ -80,6 +80,9 @@ def create_table_of_masses(results: dict, path: str = None, person_name: str = N
             writer.writerow([stage_name, "Stage length", sf(stage["stage_length"]), "m"])
             writer.writerow([stage_name, "Stage cost", sf((cost1 if stage is stage1 else cost2) / 1e3),
                              "$B (FY2025)"])
+        writer.writerow(["LV", "Stage 1 Total Mass", sf(stage1["stage_mass"]), "kg"])
+        writer.writerow(["LV", "Stage 2 Total Mass", sf(stage2["stage_mass"]), "kg"])
+        writer.writerow(["LV", "Total Stage Mass", sf(stage1["stage_mass"] + stage2["stage_mass"]), "kg"])
         writer.writerow(["LV", "Payload", sf(26000), "kg"])
         writer.writerow(["LV", "Total Mass (system level)", sf(results["systems_gross_mass"]), "kg"])
         writer.writerow(["LV", "Total Mass (vehicle level)", sf(results["ideal_gross_mass"]), "kg"])
@@ -92,6 +95,90 @@ def create_table_of_masses(results: dict, path: str = None, person_name: str = N
         if person:
             writer.writerow(["LV", "Team Member", person, "-"])
     return path
+
+
+# The 13 lecture subsystems from the Section 2 subsystem list
+NEAT_SUBSYSTEMS = [
+    ("propellant_mass", "Propellant"),
+    ("tank_mass", "Propellant tanks"),
+    ("insulation_mass", "Propellant tank insulation"),
+    ("engine_mass", "Engines"),
+    ("thrust_structure_mass", "Thrust structure"),
+    ("casing_mass", "Casing"),
+    ("gimbal_mass", "Gimbals"),
+    ("avionics_mass", "Avionics"),
+    ("wiring_mass", "Wiring"),
+    ("payload_fairing_mass", "Payload fairing"),
+    ("intertank_mass", "Inter-tank fairing"),
+    ("interstage_mass", "Inter-stage fairing"),
+    ("aft_fairing_mass", "Aft fairing"),
+    ("margin_mass", "30% Mass margin"),
+]
+
+
+#author: sharan sajiv menon
+def create_subsystems_table(results: dict, path: str = None, person_name: str = None):
+    """Create a neat 4-column CSV table of subsystems: Component Name, Stage 1, Stage 2, Total LV.
+    
+    Includes rows for each subsystem, plus bottom rows for Total Mass and Total Cost.
+    """
+    stage1 = results["stage_1"]
+    stage2 = results["stage_2"]
+
+    person = person_name or results.get("person") or results.get("name")
+
+    cost1 = stage_cost(stage1["dry_mass_with_margin"])   # $M
+    cost2 = stage_cost(stage2["dry_mass_with_margin"])
+    total_cost = cost1 + cost2
+
+    if path is None:
+        tag = f"{results['stage_1_propellant']}__{results['stage_2_propellant']}".replace("/", "_")
+        path = f"csvs/subsystems/S2_2_subsystems_{tag}_dv1_{results['delta_v_1']:.0f}.csv"
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
+    with open(path, "w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+        writer.writerow(["Component Name", "Stage 1", "Stage 2", "Total LV"])
+        for key, label in NEAT_SUBSYSTEMS:
+            v1 = stage1.get(key, 0.0)
+            v2 = stage2.get(key, 0.0)
+            v_tot = v1 + v2
+            writer.writerow([label, sf(v1), sf(v2), sf(v_tot)])
+
+        # Bottom summary rows requested by user
+        writer.writerow(["Total Mass (kg)", sf(stage1["stage_mass"]), sf(stage2["stage_mass"]), sf(results["systems_gross_mass"])])
+        writer.writerow(["Total Cost ($B)", sf(cost1 / 1e3), sf(cost2 / 1e3), sf(total_cost / 1e3)])
+        if person:
+            writer.writerow(["Team Member", "-", "-", person])
+
+    return path
+
+
+create_neat_subsystems_table = create_subsystems_table  # alias
+
+
+#author: sharan sajiv menon
+def generate_all_subsystems_tables(person_name: str = None):
+    """Generate the 4-column neat subsystem CSV tables for all team members (or a specified person)."""
+    if person_name:
+        targets = {k: v for k, v in ASSIGNED_DESIGNS.items() if person_name.lower() in k.lower()} or ASSIGNED_DESIGNS
+    else:
+        targets = ASSIGNED_DESIGNS
+
+    created_files = []
+    for person, (s1, s2, dv_min_mass, dv_min_cost) in targets.items():
+        for kind, dv in (("min-mass", dv_min_mass), ("min-cost", dv_min_cost)):
+            analysis_data = run_systems_analysis(s1, s2, dv)
+            if analysis_data is None or not analysis_data.get("converged", True):
+                print(f"Skipping {person} {kind} ({s1}/{s2} @ {dv} m/s): did not converge")
+                continue
+            path = create_subsystems_table(analysis_data, person_name=person)
+            created_files.append(path)
+            print(f"wrote {path} ({person} - {kind})")
+    return created_files
+
+
+generate_all_neat_tables = generate_all_subsystems_tables  # alias
 
 
 #author: sharan sajiv menon
@@ -120,4 +207,8 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))   # csvs/ next to this file
     print("== Generating S.2.2 mass and cost tables for all team members (10 designs) ==")
     files = generate_all_tables()
-    print(f"\nSuccessfully generated {len(files)} CSV files in csvs/")
+    print(f"\nSuccessfully generated {len(files)} detailed CSV files in csvs/")
+
+    print("\n== Generating 4-column neat subsystem tables for all team members ==")
+    subsystem_files = generate_all_subsystems_tables()
+    print(f"\nSuccessfully generated {len(subsystem_files)} subsystem CSV files in csvs/")
