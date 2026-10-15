@@ -199,7 +199,7 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
 
     if stage_num==1:
         L_IS=0.0 #3m engine bay already counted in stage 2 L_aft
-        slant_is=np.sqrt((r_top-r_s2_bot)**2+(r_top+3.0+r_s2_bot)**2)
+        slant_is=np.sqrt((r_top-r_s2_bot)**2+(r_top)**2)
         m_IS=shell_fairing_mass(np.pi*(r_top+r_s2_bot)*slant_is)
         L_PLF=0.0
         m_PLF=0.0
@@ -334,7 +334,7 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
 if __name__=="__main__": #just quick example of how to call, need to iterate through this in 2.2 to get the values we want
     d=5.2
     while d<=13.0:
-        res=solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=round(d, 2))
+        res=solve_vehicle("N2O4/UDMH", "LOX/LH2", 3750, D=round(d, 2))
         s1_fit=res["s1"]["engines_fit"]
         s2_fit=res["s2"]["engines_fit"]
         ld_ok=res["ld_ok"]
