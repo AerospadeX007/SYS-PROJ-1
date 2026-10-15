@@ -5,11 +5,22 @@
 import csv
 import os
 
-from S2_1 import run_systems_analysis
+from S2_1_HCR import run_systems_analysis
 from s1.s1_3_cost import stage_cost   # same cost function as Section 1: kg in -> $M (FY2025)
 from utils.sf import sf
 
-STAGE_1 = "N2O4/UDMH"
+# Assigned designs from Section 1 for each team member:
+# teammate: (stage_1, stage_2, min-mass dV1, min-cost dV1)
+ASSIGNED_DESIGNS = {
+    "Gregory Kahn":   ("LOX/LCH4", "LOX/LH2", 4266, 5270),
+    "Henry Rowley":   ("LOX/LH2",  "LOX/LH2", 4710, 5749),
+    "Jacob Harmon":   ("LOX/RP1",  "LOX/LH2", 4095, 5092),
+    "Sharan Menon":   ("SOLID",    "LOX/LH2", 3230, 3835),
+    "Shaunn Pavelik": ("N2O4/UDMH", "LOX/LH2", 3750, 4666),
+}
+
+# Default single-run configuration (Sharan's design)
+STAGE_1 = "SOLID"
 STAGE_2 = "LOX/LH2"
 DELTA_V_1 = 3750.0  # m/s
 
@@ -36,10 +47,12 @@ COMPONENTS = [
 
 
 ### author: sharan sajiv menon
-def create_table_of_masses(results: dict, path: str = None):
+def create_table_of_masses(results: dict, path: str = None, person_name: str = None):
     # masses of subsystems for each stage
     stage1 = results["stage_1"]
     stage2 = results["stage_2"]
+
+    person = person_name or results.get("person") or results.get("name")
 
     ## calculate costs -- NRE cost is on INERT mass in kg (payload and propellant are not costed)
     cost1 = stage_cost(stage1["dry_mass_with_margin"])   # $M
@@ -76,11 +89,35 @@ def create_table_of_masses(results: dict, path: str = None):
         writer.writerow(["LV", "Diameter", sf(results["vehicle_diameter"]), "m"])
         writer.writerow(["LV", "Length", sf(results["vehicle_length"]), "m"])
         writer.writerow(["LV", "L/D", sf(results["length_to_diameter"]), "-"])
+        if person:
+            writer.writerow(["LV", "Team Member", person, "-"])
     return path
+
+
+#author: sharan sajiv menon
+def generate_all_tables(person_name: str = None):
+    """Run systems analysis and generate S.2.2 CSV mass tables.
+    """
+    if person_name:
+        targets = {k: v for k, v in ASSIGNED_DESIGNS.items() if person_name.lower() in k.lower()} or ASSIGNED_DESIGNS
+    else:
+        targets = ASSIGNED_DESIGNS
+
+    created_files = []
+    for person, (s1, s2, dv_min_mass, dv_min_cost) in targets.items():
+        for kind, dv in (("min-mass", dv_min_mass), ("min-cost", dv_min_cost)):
+            analysis_data = run_systems_analysis(s1, s2, dv)
+            if analysis_data is None or not analysis_data.get("converged", True):
+                print(f"Skipping {person} {kind} ({s1}/{s2} @ {dv} m/s): did not converge")
+                continue
+            path = create_table_of_masses(analysis_data, person_name=person)
+            created_files.append(path)
+            print(f"wrote {path} ({person} - {kind})")
+    return created_files
 
 
 if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(__file__)))   # csvs/ next to this file
-    # pick your propellant combo
-    analysis_data = run_systems_analysis(STAGE_1, STAGE_2, DELTA_V_1)
-    print("wrote", create_table_of_masses(analysis_data))
+    print("== Generating S.2.2 mass and cost tables for all team members (10 designs) ==")
+    files = generate_all_tables()
+    print(f"\nSuccessfully generated {len(files)} CSV files in csvs/")
