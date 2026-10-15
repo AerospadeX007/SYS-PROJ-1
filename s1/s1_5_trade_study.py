@@ -1,5 +1,6 @@
 """
 Author: Shaunn Pavelik (9/21/2026), Jacob Harmon (9/26/2026)
+Heat map colors and labels updated for the TA's Submission 1 comment: Shaunn Pavelik (10/15/2026)
 """
 import os
 
@@ -7,7 +8,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import LogNorm
+from matplotlib.colors import LinearSegmentedColormap, LogNorm
 from matplotlib.patches import Rectangle
 
 import TrueConst as T
@@ -37,21 +38,34 @@ def _style():
         "mathtext.fontset": "stix"})
 
 
+def _sf3(v):
+    """3 significant figures with thousands separators (1,270 / 10.1 / 111)."""
+    r = float(f"{v:.3g}")
+    return f"{r:,.0f}" if r >= 100 else f"{r:#.3g}"
+
+
+def _cmap(name, lo=0.18):
+    """Colormap without its near-white low end, so the cheapest/lightest cells still show color."""
+    return LinearSegmentedColormap.from_list(f"{name}_from_{lo}", plt.get_cmap(name)(np.linspace(lo, 1.0, 256)))
+
+
 def heatmaps(results, path):
     """Graphic 1 -- matrix heat maps with values printed in every cell."""
     _style()
     fig, axes = plt.subplots(1, 2, figsize=(20, 8.6))
     panels = [("mass", "m0_t", "Minimum-mass designs: gross LV mass (t)", "YlOrRd"),
-              ("cost", "cost_B", "Minimum-cost designs: program NRE cost ($B2025)", "PuBu")]
+              ("cost", "cost_B", "Minimum-cost designs: program NRE cost ($B2025)", "YlGnBu")]
+    # cost map was PuBu: its pale low end washed out every design under ~$20B (TA comment on Sub 1).
+    # Both maps now skip their white end (_cmap) so the low values stay visible.
     for ax, (design, key, title, cmap) in zip(axes, panels):
         # grid[row = second stage, col = first stage]
         grid = np.array([[results[n1][n2][design][key] for n1 in NAMES] for n2 in NAMES])
-        im = ax.imshow(grid, cmap=cmap, norm=LogNorm(grid.min(), grid.max()))
+        im = ax.imshow(grid, cmap=_cmap(cmap), norm=LogNorm(grid.min(), grid.max()))
         for r in range(5):
             for c in range(5):
                 v = grid[r, c]
                 dark = np.log(v / grid.min()) > 0.6 * np.log(grid.max() / grid.min())
-                ax.text(c, r, round(v, 2), ha="center", va="center", fontsize=15,
+                ax.text(c, r, _sf3(v), ha="center", va="center", fontsize=15,
                         fontweight="bold", color="white" if dark else "black")
         top = ranked(results, design, key)[:N_TOP]
         # for rank, (n1, n2, _) in enumerate(top, 1): # we chose to remove this ranking thing
@@ -59,14 +73,19 @@ def heatmaps(results, path):
         #     ax.add_patch(Rectangle((c - .5, r - .5), 1, 1, fill=False, ec="#00a651", lw=4.5))
         #     ax.text(c + .42, r - .40, f"#{rank}", ha="right", va="top", fontsize=12,
         #             fontweight="bold", color="#00a651")
-        ax.set_xticks(range(5), [f"{n}\n({INITIALS[T.COLUMN_OWNER[n]]})" for n in NAMES])
-        ax.set_yticks(range(5), NAMES)
+        show = lambda n: "Solid" if n == "SOLID" else n
+        ax.set_xticks(range(5), [f"{show(n)}\n({INITIALS[T.COLUMN_OWNER[n]]})" for n in NAMES])
+        ax.set_yticks(range(5), [show(n) for n in NAMES])
         ax.set_xlabel("First-stage propellant (analyst)")
         ax.set_ylabel("Second-stage propellant")
         ax.set_title(title, pad=12)
         cb = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+        ticks = [t for t in (2e3, 5e3, 1e4, 2e4, 5e4, 1e5) if design == "mass"] or [10, 15, 20, 30, 50, 100]
+        cb.set_ticks([t for t in ticks if grid.min() <= t <= grid.max()])
+        cb.set_ticklabels([f"{t:,.0f}" for t in ticks if grid.min() <= t <= grid.max()])
+        cb.minorticks_off()
         cb.ax.tick_params(labelsize=12)
-    fig.suptitle("Vehicle-level trade study: all 25 propellant combinations (green = top 3)",
+    fig.suptitle("Vehicle-level trade study: all 25 propellant combinations",
                  fontsize=21, fontweight="bold", y=1.0)
     fig.tight_layout()
     fig.savefig(path)
