@@ -68,11 +68,22 @@ it works for any tank shape. The lecture's spheres were only its first-pass geom
 | Diameter | Lightest D (0.1 m steps, from 5.2 m) with L/D <= 13 and engines that fit in the aft fairing; if none fits up to 25 m, lightest L/D-OK design, flagged | CAD needs real engine counts. `ENFORCE_ENGINE_FIT` |
 
 `python S2_crosscheck_HCR.py` runs our tool and Henry's on all ten team designs at the same
-diameter with Henry's inputs: they agree to 0.000% in mass and cost. With our default inter-stage
-(top dome only) the vehicles come out 0.5-1.3% lighter and 1.0-2.0% cheaper than S2_1_HCR's 10/14
-version; the group picks (lowest mass LOX/LH2 / LOX/LH2, lowest cost N2O4/UDMH / LOX/LH2) don't change.
-Decided 10/14 (Henry): that S2_1_HCR edit was a mistake (it counts stage 2's engine bay twice), so the
-team keeps S2_1's default (`INTERSTAGE_OVER_UPPER_ENGINE_BAY = False`) and S2_1.py is the submitted tool.
+diameter with Henry's J-2X inputs: since Henry's 10/14 evening fix to the inter-stage length they
+agree to 0.000% in mass and cost on all 8 designs that close in both.
+
+## Two ways to make the S.2.2 tables (pick one for the slides)
+`main_section2.py` sizes every design with `S2_1.py`; `S2_2.py` (10/14 night) sizes them with
+`S2_1_HCR.py`. Both write the same `csvs/S2_2_table_of_masses_*.csv` names, so whichever ran last is
+what's in `csvs/`. The tools agree on the same inputs; the numbers differ only because of:
+
+| | main_section2.py (S2_1) | S2_2.py (S2_1_HCR) |
+|---|---|---|
+| "Vehicle level" row | Section 1 result (Table 2 Isp 452 s), same as T.4/T.5 | Section 1 relations re-run with the J-2X's 448 s |
+| Diameter search | 5.2-25 m; engines must fit under the aft fairing; if none fit, lightest L/D-OK design, flagged | 5.2-13 m; engines checked against D; if none fit, returns the 13 m design |
+| J-2X O/F, chamber pressure | 5.5, 9.23 MPa (cited) | 6.03 (Table 2 LOX/LH2), 9.1 MPa |
+| LOX/RP1 and solid first stages | 7.0-7.9 m, flagged "engines don't fit" | 13 m, engines don't fit |
+
+The group slides use main_section2.py.
 
 ## Still open
 - LOX/RP1 and solid first stages (Jacob, Sharan): the Table 2 engines (3.7 m and 6.6 m exits)
