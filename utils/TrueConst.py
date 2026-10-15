@@ -112,6 +112,24 @@ PROPELLANT_NAMES = ["LOX/LCH4", "LOX/LH2", "LOX/RP1", "SOLID", "N2O4/UDMH"]
 PROPS = dict(zip(PROPELLANT_NAMES, PROPELLANTS))
 
 
+# J-2X: researched LOX/LH2 upper-stage engine (Table 2 caption allows a cited swap).
+# Team decision 10/12 (Henry): Table 2's 0.099 MN LOX/LH2 2nd-stage engine needs 20-45 engines
+# for T/W >= 0.76. Added 10/14 by Shaunn Pavelik (values Henry used in S2_1_HCR, checked to NASA).
+# Sources: T. Byrd, "From Concept to Design: Progress on the J-2X Upper Stage Engine", AIAA JPC 2008
+#          (NTRS 20080036837): 294,000 lbf vac, Isp 448 s, area ratio 92:1, O/F 5.5 primary mode
+#          X.-Y. Wang et al., TFAWS08-1013, NASA GRC 2008: chamber pressure 1,338 psia, O/F 5.5
+#          Nozzle exit diameter ~3 m (Wikipedia "J-2X"); Henry used 3.05 m
+J2X = {
+    "name": "J-2X",
+    "thrust_vac_MN": 1.307,             # 294,000 lbf
+    "isp_vacuum_s": 448,
+    "chamber_pressure_MPa": 9.23,       # 1,338 psia
+    "expansion_ratio": 92,
+    "exhaust_diameter_m": 3.05,
+    "mixture_ratio": 5.5,               # O/F primary mode
+    "length_m": 4.7,                    # real length; the handout still says assume 3 m engines
+}
+
 COLUMN_OWNER = {
     "LOX/LCH4": "Gregory Kahn",
     "LOX/LH2": "Henry Rowley",
