@@ -1,7 +1,7 @@
 // Section 2 (system-level tool) code flow chart -- A.5.b / G.3
 // Regenerate: dot -Tpdf S2_code_flowchart.dot -o S2_code_flowchart.pdf ; dot -Tpng -Gdpi=150 S2_code_flowchart.dot -o S2_code_flowchart.png
 // Author: Shaunn Pavelik (10/8/2026; updated 10/14 for J-2X + cross-check; 10/15 for S2_2's all-teammate
-// loop and S2_1_HCR's diameter sweep), from the call graph of the Section 2 files on main
+// loop and S2_1_HCR's diameter sweep, plus S2_results_chart.py), from the call graph of the Section 2 files on main
 digraph S2 {
   rankdir=LR; newrank=true; nodesep=0.18; ranksep=0.55; compound=true;
   graph [fontname="Helvetica", fontsize=20, labelloc=t, label="Team 3 - ENAE 483 Project 1 - Section 2 System-Level Tools: Code Flow Chart\n"];
@@ -49,6 +49,11 @@ digraph S2 {
     section1_splits; sweep_dv1; plot_breakdown; plot_vl_vs_sl; plot_vehicle_sketch; plot_dv1_sweep;
     plot_team_designs; plot_team_scatter; plot_group_matrix;
   }
+  subgraph cluster_xl { label="S2_results_chart.py  (Pavelik: Results 1 slide as native Excel + PowerPoint charts)"; style="rounded,filled"; fillcolor="#eef7f6"; color="#2b8a84"; fontsize=14;
+    xlmain [label="__main__", shape=box, style="rounded,filled,bold", fillcolor="#cfe9e6"];
+    load_report [label="load\n(csvs/S2_report.json)"]; build_workbook [label="build_workbook\n(Excel table + chart)"];
+    build_ppt_chart [label="build_ppt_chart\n(native chart in the deck)"]; on_chart; off_chart_note; legend_order; pick_label;
+  }
   subgraph cluster_s1 { label="Section 1 tools reused (s1/, utils/)"; style="rounded,filled"; fillcolor="#f1f1ee"; color="#8a8a85"; fontsize=14;
     calculate_stage_masses [label="calculate_stage_masses\n(s1_1, Rowley)"]; stage_cost [label="stage_cost\n(s1_3_cost, Rowley)"]; sf [label="sf\n(utils/sf)"];
   }
@@ -84,6 +89,12 @@ digraph S2 {
   xmain -> {henry_diameter s2_1};
   henry_diameter -> solve_vehicle;
   s2_1 -> _size_vehicle;
+
+  // Results 1 charts (reads the JSON main_section2.py writes)
+  main -> xlmain [style=dashed, label="S2_report.json", fontsize=11, fontname="Helvetica"];
+  xlmain -> {load_report build_workbook build_ppt_chart};
+  build_workbook -> {on_chart off_chart_note legend_order};
+  build_ppt_chart -> {on_chart off_chart_note legend_order pick_label};
 
   // graphs
   section1_splits -> {calculate_stage_masses stage_cost};
