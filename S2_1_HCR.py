@@ -4,9 +4,9 @@ from s1.s1_3_cost import stage_cost
 import utils.TrueConst as TrueConst
 
 
-#AUTHOR: Henry Rowley
-#Created: 10/13/2026
+#Initial Author: Henry Rowley (see function definition comments for function/subfunction authors)
 #Note all masses in kg, velocities in m/s, g0 in m/s^2, thrust in N, etc. Final costs in M$
+
 
 
 # geometry helpers
@@ -46,10 +46,11 @@ def payload_fairing_geometry(r_top: float): # Gregory Kahn
 
     return L_total, m_fairing
 
-def shell_fairing_mass(A: float): #input is area in m^2, output in kg
+def shell_fairing_mass(A: float): # Jacob Thomas Harmon
+    #input is area in m^2, output in kg
     return 4.95 * A**1.15
 
-def engine_pack_diameter(N: int, De: float):
+def engine_pack_diameter(N: int, De: float): #Shaunn Michael Pavelik
     PACK_RATIOS=[1.0, 2.0, 2.155, 2.414, 2.701, 3.0] #can calculate more if need >6 engines
     #use circular packing ratios for various numbers of engines
     if N <= len(PACK_RATIOS):
@@ -59,7 +60,7 @@ def engine_pack_diameter(N: int, De: float):
     return k*De #get ratio of outer/inner * inner diameter to get diameter needed for engines
 
 #propellant helper for easier access 
-def get_stage_prop_specs(prop_name: str, stage_num: int):
+def get_stage_prop_specs(prop_name: str, stage_num: int): #Shaunn Michael Pavelik
     data=TrueConst.PROPS[prop_name]
 
     if stage_num==1:
@@ -130,7 +131,7 @@ def get_stage_prop_specs(prop_name: str, stage_num: int):
     }
 
 #stage sizing
-def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, D: float, M0: float, r_s2_bot: float=0.0):
+def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, D: float, M0: float, r_s2_bot: float=0.0): # Henry Rowley
     specs=get_stage_prop_specs(prop_name, stage_num)
 
     if stage_num==1: #twr needed depends on stage
@@ -238,7 +239,7 @@ def size_stage(stage_num: int, prop_name: str, m_pr: float, m_supported: float, 
         "L_tank_f": L_tank_f, "L_cyl_f": L_cyl_f, "L_tank_ox": L_tank_ox, "L_cyl_ox": L_cyl_ox
     }
 
-def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now let's assume set stage diam of 5.2m
+def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): # Henry Rowley
     #get delta v values and other parameters
     dV_total=TrueConst.mission_delV_ms 
     dV2=dV_total-dV1
@@ -280,7 +281,7 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
         #size stage 1
         M0_curr=M0-m_0_2+m_0_2_new
         s1=size_stage(1, prop1, m_pr_1, M0_curr, D, M0_curr, r_s2_bot=s2["r_bot"]) #note r_s2_bot is the radius of the bottom fuel tank of stage 2
-        m_f_1=m_0_2_new+s1["dry_budgeted"] #final mass will include updated stage 2 gross mass plus stage 1inert mass(w/ 30% mass margin)
+        m_f_1=m_0_2_new+s1["dry_budgeted"] #final mass will include updated stage 2 gross mass plus stage 1 inert mass with 30 percent mass margin
         M0_new=m_f_1/r1 #calculate gross liftoff mass to get dv1
         m_pr_1=M0_new-m_f_1 #new stage 1 prop mass
 
@@ -331,7 +332,7 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
         }
 
 #helper to format stage dict into keys expected by S2_2
-def format_stage_for_s2_2(s: dict, prop_name: str, stage_num: int):
+def format_stage_for_s2_2(s: dict, prop_name: str, stage_num: int): # Sharan Sajiv Menon
     specs=get_stage_prop_specs(prop_name, stage_num)
     base_needed=engine_pack_diameter(s["N_eng"], specs["De"])
 
@@ -368,21 +369,21 @@ def format_stage_for_s2_2(s: dict, prop_name: str, stage_num: int):
     }
 
 #wrapper to sweep diameter until geometric/engine constraints close, then output for S2_2
-def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=60.0, d_step: float=0.1):
+def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=60.0, d_step: float=0.1): # Jacob Thomas Harmon
     d=d_start
     res=None
 
-    while d<=d_max:
-        d_curr=round(d, 2)
-        res=solve_vehicle(prop1, prop2, dV1, D=d_curr)
-        s1_fit=res["s1"]["engines_fit"]
-        s2_fit=res["s2"]["engines_fit"]
-        ld_ok=res["ld_ok"]
+    while d<=d_max: #keep looping until hit maximum diameter, set quite large here(60 m) to allow convergence for some suboptimal designs like solids
+        d_curr=round(d, 2) #regardless of provide d_step, should prevent excessively precise diameters(currently we loop through in 0.1 m steps)
+        res=solve_vehicle(prop1, prop2, dV1, D=d_curr) #run solve_vehicle until masses converge
+        s1_fit=res["s1"]["engines_fit"] #check for engine fit in stage 1
+        s2_fit=res["s2"]["engines_fit"] #check for engine fit in stage 2
+        ld_ok=res["ld_ok"] #check for length to diameter ratio =< 13.0
 
         if ld_ok:
             if s1_fit:
                 if s2_fit:
-                    break
+                    break #only exit loop ahead of hitting d_max if all conditions satisfied
         d+=d_step
 
     #re-call section 1 once to get vehicle-level inert masses for ideal cost comparison
@@ -394,10 +395,11 @@ def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: flo
     del1=TrueConst.PROPS[prop1]["inert_mass_fraction"]
     del2=TrueConst.PROPS[prop2]["inert_mass_fraction"]
 
+    #calculate section 1 values again--note potential slight discrepancy if using J-2X 448 sec ISP vs tabl 2 452 sec ISP for upper stage hydrolox
     sec1=calculate_stage_masses(dV_1=dV1, delta_1=del1, delta_2=del2, isp_1=specs1["Isp"], isp_2=specs2["Isp"], dV_tot=dV_total, m_pl=m_pl, g_0=g0)
     ideal_cost_M=stage_cost(sec1["m_in_1"])+stage_cost(sec1["m_in_2"])
 
-    return {
+    return { #output the values(calling helper to reformat values to work with existing S2_2.py code)
         "stage_1_propellant": prop1,
         "stage_2_propellant": prop2,
         "delta_v_1": dV1,
@@ -412,7 +414,7 @@ def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: flo
     }
 
 
-if __name__=="__main__": #just quick example of how to call, need to iterate through this in 2.2 to get the values we want
+if __name__=="__main__": #just quick example of how to call/loop, currently run_systems_analysis called by 2.2 yields the values we want in csv format for analysis
     d=5.2
     while d<=13.0:
         res=solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=round(d, 2))
