@@ -368,7 +368,7 @@ def format_stage_for_s2_2(s: dict, prop_name: str, stage_num: int):
     }
 
 #wrapper to sweep diameter until geometric/engine constraints close, then output for S2_2
-def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=13.0, d_step: float=0.2):
+def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=13.0, d_step: float=0.1):
     d=d_start
     res=None
 
@@ -415,7 +415,7 @@ def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: flo
 if __name__=="__main__": #just quick example of how to call, need to iterate through this in 2.2 to get the values we want
     d=5.2
     while d<=13.0:
-        res=solve_vehicle("N2O4/UDMH", "LOX/LH2", 3750, D=round(d, 2))
+        res=solve_vehicle("LOX/LH2", "LOX/LH2", 4710, D=round(d, 2))
         s1_fit=res["s1"]["engines_fit"]
         s2_fit=res["s2"]["engines_fit"]
         ld_ok=res["ld_ok"]
