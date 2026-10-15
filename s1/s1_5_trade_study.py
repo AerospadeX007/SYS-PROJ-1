@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, LogNorm
 from matplotlib.patches import Rectangle
+from matplotlib.ticker import NullFormatter
 
 import TrueConst as T
 from s1_make_csv import analyze_propellants_matrix
@@ -49,6 +50,10 @@ def _cmap(name, lo=0.18):
     return LinearSegmentedColormap.from_list(f"{name}_from_{lo}", plt.get_cmap(name)(np.linspace(lo, 1.0, 256)))
 
 
+def _show(n):
+    return "Solid" if n == "SOLID" else n
+
+
 def heatmaps(results, path):
     """Graphic 1 -- matrix heat maps with values printed in every cell."""
     _style()
@@ -73,9 +78,8 @@ def heatmaps(results, path):
         #     ax.add_patch(Rectangle((c - .5, r - .5), 1, 1, fill=False, ec="#00a651", lw=4.5))
         #     ax.text(c + .42, r - .40, f"#{rank}", ha="right", va="top", fontsize=12,
         #             fontweight="bold", color="#00a651")
-        show = lambda n: "Solid" if n == "SOLID" else n
-        ax.set_xticks(range(5), [f"{show(n)}\n({INITIALS[T.COLUMN_OWNER[n]]})" for n in NAMES])
-        ax.set_yticks(range(5), [show(n) for n in NAMES])
+        ax.set_xticks(range(5), [f"{_show(n)}\n({INITIALS[T.COLUMN_OWNER[n]]})" for n in NAMES])
+        ax.set_yticks(range(5), [_show(n) for n in NAMES])
         ax.set_xlabel("First-stage propellant (analyst)")
         ax.set_ylabel("Second-stage propellant")
         ax.set_title(title, pad=12)
@@ -93,6 +97,7 @@ def heatmaps(results, path):
 
 
 # Author Jacob Harmon
+# 10/15/2026 (Pavelik): bigger fonts, dpi 300 and 'Solid' labels so the bars can be read on the slide
 def ranked_designs(results, path):
 
 
@@ -102,13 +107,13 @@ def ranked_designs(results, path):
     top_mass = ranked(results, "mass", "m0_t")[:10]
     # Top 10 by minimum cost
     top_cost = ranked(results, "cost", "cost_B")[:10]
-    fig, axes = plt.subplots(1, 2, figsize=(18, 10))
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8.4))
     fig.subplots_adjust(
         left=0.16,
         right=0.97,
-        top=0.88,
+        top=0.86,
         bottom=0.10,
-        wspace=0.42
+        wspace=0.72
     )
 
     ax = axes[0]
@@ -125,7 +130,7 @@ def ranked_designs(results, path):
         cost = results[n1][n2]["mass"]["cost_B"]
 
         masses.append(m0)
-        labels.append(f"#{i+1}   {n1} / {n2}")
+        labels.append(f"#{i+1}   {_show(n1)} / {_show(n2)}")
 
         if i < 3:
             color = "#2a9d55"
@@ -153,12 +158,12 @@ def ranked_designs(results, path):
             f"{m0:,.0f} t   |   ${cost:.2f}B",
             va="center",
             ha="left",
-            fontsize=13,
+            fontsize=16,
             fontweight=weight
         )
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=13)
+    ax.set_yticklabels(labels, fontsize=16)
     ax.invert_yaxis()
     for i in range(min(3, len(top_mass))):
         tick = ax.get_yticklabels()[i]
@@ -166,23 +171,25 @@ def ranked_designs(results, path):
         tick.set_color("#126b32")
     ax.set_xscale("log")
     ax.set_xlim(min(masses) * 0.8, max(masses) * 2.2)
+    ax.set_xticks([1500, 2000, 3000, 5000], [f"{v:,}" for v in [1500, 2000, 3000, 5000]])      # plain labels, not 2x10^3
+    ax.xaxis.set_minor_formatter(NullFormatter())
     ax.grid(axis="x", which="both", linestyle="--", alpha=0.25)
-    ax.tick_params(axis="x", labelsize=12)
+    ax.tick_params(axis="x", labelsize=14)
     ax.tick_params(axis="y", length=0)
     ax.set_title(
         "Top 10 Minimum-Mass Designs",
-        fontsize=17,
+        fontsize=19,
         fontweight="bold",
         pad=10
     )
     ax.set_xlabel(
         "Minimum Gross Launch Vehicle Mass (t)  [log scale]",
-        fontsize=14,
+        fontsize=16,
         fontweight="bold"
     )
     ax.set_ylabel(
         "Stage 1 / Stage 2 Propellant",
-        fontsize=14,
+        fontsize=16,
         fontweight="bold"
     )
     ax.spines["top"].set_visible(False)
@@ -200,7 +207,7 @@ def ranked_designs(results, path):
         m0 = results[n1][n2]["cost"]["m0_t"]
 
         costs.append(cost)
-        labels.append(f"#{i+1}   {n1} / {n2}")
+        labels.append(f"#{i+1}   {_show(n1)} / {_show(n2)}")
 
         if i < 3:
             color = "#2a9d55"
@@ -228,12 +235,12 @@ def ranked_designs(results, path):
             f"${cost:.2f}B   |   {m0:,.0f} t",
             va="center",
             ha="left",
-            fontsize=13,
+            fontsize=16,
             fontweight=weight
         )
 
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=13)
+    ax.set_yticklabels(labels, fontsize=16)
     ax.invert_yaxis()
     for i in range(min(3, len(top_cost))):
         tick = ax.get_yticklabels()[i]
@@ -241,18 +248,20 @@ def ranked_designs(results, path):
         tick.set_color("#126b32")
     ax.set_xscale("log")
     ax.set_xlim(min(costs) * 0.8, max(costs) * 2.2)
+    ax.set_xticks([10, 12, 15, 20, 30], [f"{v:,}" for v in [10, 12, 15, 20, 30]])      # plain labels, not 2x10^3
+    ax.xaxis.set_minor_formatter(NullFormatter())
     ax.grid(axis="x", which="both", linestyle="--", alpha=0.25)
-    ax.tick_params(axis="x", labelsize=12)
+    ax.tick_params(axis="x", labelsize=14)
     ax.tick_params(axis="y", length=0)
     ax.set_title(
         "Top 10 Minimum-Cost Designs",
-        fontsize=17,
+        fontsize=19,
         fontweight="bold",
         pad=10
     )
     ax.set_xlabel(
         "Minimum Program Cost ($B2025)  [log scale]",
-        fontsize=14,
+        fontsize=16,
         fontweight="bold"
     )
     ax.spines["top"].set_visible(False)
@@ -261,12 +270,12 @@ def ranked_designs(results, path):
     # The title
     fig.suptitle(
         "Top Launch Vehicle Designs by Mass and Cost",
-        fontsize=22,
+        fontsize=23,
         fontweight="bold",
-        y=0.95
+        y=0.99
     )
 
-    fig.savefig(path, dpi=800, bbox_inches="tight")
+    fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 
