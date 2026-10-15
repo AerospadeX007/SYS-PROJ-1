@@ -368,7 +368,7 @@ def format_stage_for_s2_2(s: dict, prop_name: str, stage_num: int):
     }
 
 #wrapper to sweep diameter until geometric/engine constraints close, then output for S2_2
-def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=13.0, d_step: float=0.1):
+def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=60.0, d_step: float=0.1):
     d=d_start
     res=None
 
