@@ -330,6 +330,87 @@ def solve_vehicle(prop1: str, prop2: str, dV1: float, D: float=5.2): #for now le
             "s2": s2
         }
 
+#helper to format stage dict into keys expected by S2_2
+def format_stage_for_s2_2(s: dict, prop_name: str, stage_num: int):
+    specs=get_stage_prop_specs(prop_name, stage_num)
+    base_needed=engine_pack_diameter(s["N_eng"], specs["De"])
+
+    #check if using J-2X override or standard Table 2 engine
+    if prop_name=="LOX/LH2" and stage_num==2:
+        eng_name="J-2X"
+    else:
+        eng_name="Table 2"
+
+    return {
+        "propellant_name": prop_name,
+        "propellant_mass": s["m_pr"],
+        "tank_mass": s["m_tank"],
+        "insulation_mass": s["m_ins"],
+        "engine_mass": s["m_eng"],
+        "thrust_structure_mass": s["m_thrust_struct"],
+        "casing_mass": s["m_casing"],
+        "gimbal_mass": s["m_gimbal"],
+        "avionics_mass": s["m_avionics"],
+        "wiring_mass": s["m_wiring"],
+        "payload_fairing_mass": s["m_PLF"],
+        "intertank_mass": s["m_intertank"],
+        "interstage_mass": s["m_IS"],
+        "aft_fairing_mass": s["m_aft"],
+        "dry_mass_without_margin": s["dry_raw"],
+        "margin_mass": s["dry_budgeted"]-s["dry_raw"],
+        "dry_mass_with_margin": s["dry_budgeted"],
+        "stage_mass": s["stage_mass"],
+        "number_of_engines": s["N_eng"],
+        "engine_name": eng_name,
+        "engines_fit": s["engines_fit"],
+        "engine_base_diameter_needed": base_needed,
+        "stage_length": s["stage_length"]
+    }
+
+#wrapper to sweep diameter until geometric/engine constraints close, then output for S2_2
+def run_systems_analysis(prop1: str, prop2: str, dV1: float=3750.0, d_start: float=5.2, d_max: float=13.0, d_step: float=0.2):
+    d=d_start
+    res=None
+
+    while d<=d_max:
+        d_curr=round(d, 2)
+        res=solve_vehicle(prop1, prop2, dV1, D=d_curr)
+        s1_fit=res["s1"]["engines_fit"]
+        s2_fit=res["s2"]["engines_fit"]
+        ld_ok=res["ld_ok"]
+
+        if ld_ok:
+            if s1_fit:
+                if s2_fit:
+                    break
+        d+=d_step
+
+    #re-call section 1 once to get vehicle-level inert masses for ideal cost comparison
+    dV_total=TrueConst.mission_delV_ms
+    m_pl=TrueConst.pyld_mass_kg
+    g0=TrueConst.G0
+    specs1=get_stage_prop_specs(prop1, 1)
+    specs2=get_stage_prop_specs(prop2, 2)
+    del1=TrueConst.PROPS[prop1]["inert_mass_fraction"]
+    del2=TrueConst.PROPS[prop2]["inert_mass_fraction"]
+
+    sec1=calculate_stage_masses(dV_1=dV1, delta_1=del1, delta_2=del2, isp_1=specs1["Isp"], isp_2=specs2["Isp"], dV_tot=dV_total, m_pl=m_pl, g_0=g0)
+    ideal_cost_M=stage_cost(sec1["m_in_1"])+stage_cost(sec1["m_in_2"])
+
+    return {
+        "stage_1_propellant": prop1,
+        "stage_2_propellant": prop2,
+        "delta_v_1": dV1,
+        "stage_1": format_stage_for_s2_2(res["s1"], prop1, 1),
+        "stage_2": format_stage_for_s2_2(res["s2"], prop2, 2),
+        "systems_gross_mass": res["M0"],
+        "ideal_gross_mass": res["ideal_M0"],
+        "ideal_cost_musd": ideal_cost_M,
+        "vehicle_diameter": d_curr,
+        "vehicle_length": res["L_total"],
+        "length_to_diameter": res["ld_ratio"]
+    }
+
 
 if __name__=="__main__": #just quick example of how to call, need to iterate through this in 2.2 to get the values we want
     d=5.2
